@@ -32,7 +32,12 @@ function consumeFlash(request) {
 
 function getBaseUrl(request) {
   if (process.env.APP_BASE_URL) {
-    return process.env.APP_BASE_URL.replace(/\/$/, "");
+    try {
+      const parsedUrl = new URL(process.env.APP_BASE_URL);
+      return parsedUrl.origin;
+    } catch (_error) {
+      return process.env.APP_BASE_URL.replace(/\/$/, "");
+    }
   }
 
   const forwardedProto = request.get("x-forwarded-proto");

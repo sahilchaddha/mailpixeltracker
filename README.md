@@ -60,6 +60,8 @@ If you are serving the app under a subpath such as `/mail`, also set either:
 - `APP_BASE_URL=https://www.example.com/mail`
 - or `APP_BASE_PATH=/mail`
 
+`APP_BASE_URL` may include the subpath. The app will use the URL origin plus that path once, so it is safe to keep `X-Forwarded-Prefix: /mail` enabled in Nginx.
+
 4. Optional Telegram settings:
 
 - `TELEGRAM_BOT_TOKEN`
