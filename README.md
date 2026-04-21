@@ -36,6 +36,14 @@ MailPixelTracker is a local Express + SQLite app for:
 npm install
 ```
 
+If you move the project between Linux machines or containers with different glibc versions, rebuild the native SQLite addon on that machine before starting the app:
+
+```bash
+npm rebuild sqlite3 --build-from-source
+```
+
+The project also runs this rebuild automatically in `postinstall` to avoid loading an incompatible prebuilt `sqlite3` binary.
+
 2. Copy the example env file and edit it:
 
 ```bash
