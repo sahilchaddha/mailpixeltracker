@@ -4,7 +4,6 @@
   "description": "Mail and link open tracker with Express, SQLite, Telegram alerts, and a CRM-style dashboard.",
   "main": "index.js",
   "scripts": {
-    "postinstall": "npm rebuild sqlite3 --build-from-source",
     "start": "node index.js",
     "dev": "node --watch index.js",
     "test": "echo \"No automated tests configured yet\""
@@ -33,6 +32,6 @@
     "express": "^5.2.1",
     "express-session": "^1.19.0",
     "multer": "^2.1.1",
-    "sqlite3": "^6.0.1"
+    "sqlite3": "^5.1.7"
   }
 }
