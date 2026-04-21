@@ -49,6 +49,19 @@ function getClientIp(request) {
   return request.ip || request.socket?.remoteAddress || "unknown";
 }
 
+function removePixelFile(pixelDirectory, filename) {
+  if (!filename) {
+    return;
+  }
+
+  const filePath = path.join(pixelDirectory, filename);
+  if (!fs.existsSync(filePath)) {
+    return;
+  }
+
+  fs.unlinkSync(filePath);
+}
+
 async function sendTelegramAlert(message) {
   const botToken = process.env.TELEGRAM_BOT_TOKEN;
   const chatId = process.env.TELEGRAM_CHAT_ID;
@@ -381,6 +394,26 @@ function createApp() {
 
     setFlash(request, "success", `Link tracker "${name}" created.`);
     response.redirect(`/trackers/${uuid}`);
+  } catch (error) {
+    next(error);
+  }
+  });
+
+  app.post("/trackers/:uuid/delete", async (request, response, next) => {
+  try {
+    const tracker = await get(db, "SELECT * FROM trackers WHERE uuid = ?", [request.params.uuid]);
+    if (!tracker) {
+      setFlash(request, "error", "Tracker not found.");
+      response.redirect("/");
+      return;
+    }
+
+    removePixelFile(pixelDirectory, tracker.pixel_filename);
+
+    await run(db, "DELETE FROM trackers WHERE id = ?", [tracker.id]);
+
+    setFlash(request, "success", `Tracker "${tracker.name}" and its events were deleted.`);
+    response.redirect("/");
   } catch (error) {
     next(error);
   }

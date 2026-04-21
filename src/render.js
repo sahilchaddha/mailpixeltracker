@@ -318,7 +318,16 @@ function renderTrackerDetailPage({ tracker, events, baseUrl, flash, user }) {
         <h1>${escapeHtml(tracker.name)}</h1>
         <p>Created ${formatDate(tracker.created_at)}. UUID: ${escapeHtml(tracker.uuid)}</p>
       </div>
-      <a class="button-link secondary" href="/">Back to Dashboard</a>
+      <div class="hero-actions">
+        <a class="button-link secondary" href="/">Back to Dashboard</a>
+        <form
+          method="post"
+          action="/trackers/${escapeHtml(tracker.uuid)}/delete"
+          onsubmit="return confirm('Delete this tracker and all of its events? This cannot be undone.');"
+        >
+          <button class="danger-button" type="submit">Delete Tracker</button>
+        </form>
+      </div>
     </section>
 
     <section class="details-grid">
