@@ -40,6 +40,41 @@ function getBaseUrl(request) {
   return `${protocol}://${request.get("host")}`;
 }
 
+function normalizeBasePath(value) {
+  const trimmedValue = String(value || "").trim();
+  if (!trimmedValue || trimmedValue === "/") {
+    return "";
+  }
+
+  return `/${trimmedValue.replace(/^\/+|\/+$/g, "")}`;
+}
+
+function getBasePath(request) {
+  if (process.env.APP_BASE_PATH) {
+    return normalizeBasePath(process.env.APP_BASE_PATH);
+  }
+
+  if (process.env.APP_BASE_URL) {
+    try {
+      return normalizeBasePath(new URL(process.env.APP_BASE_URL).pathname);
+    } catch (_error) {
+      return "";
+    }
+  }
+
+  const forwardedPrefix = request.get("x-forwarded-prefix");
+  if (forwardedPrefix) {
+    return normalizeBasePath(forwardedPrefix.split(",")[0].trim());
+  }
+
+  return "";
+}
+
+function withBasePath(request, routePath) {
+  const normalizedRoutePath = routePath.startsWith("/") ? routePath : `/${routePath}`;
+  return `${getBasePath(request)}${normalizedRoutePath}`;
+}
+
 function getClientIp(request) {
   const forwarded = request.get("x-forwarded-for");
   if (forwarded) {
@@ -107,8 +142,8 @@ async function recordEvent(request, tracker, eventType, db) {
 
   const trackingUrl =
     tracker.type === "mail"
-      ? `${getBaseUrl(request)}/${tracker.uuid}/signature.png`
-      : `${getBaseUrl(request)}/r/${tracker.uuid}`;
+      ? `${getBaseUrl(request)}${withBasePath(request, `/${tracker.uuid}/signature.png`)}`
+      : `${getBaseUrl(request)}${withBasePath(request, `/r/${tracker.uuid}`)}`;
 
   const message = [
     `MailPixelTracker ${eventType.toUpperCase()}`,
@@ -135,7 +170,7 @@ function requireAuth(request, response, next) {
     return;
   }
 
-  response.redirect("/login");
+  response.redirect(withBasePath(request, "/login"));
 }
 
 function createApp() {
@@ -236,11 +271,17 @@ function createApp() {
 
   app.get("/login", (request, response) => {
     if (request.session.isAuthenticated) {
-      response.redirect("/");
+      response.redirect(withBasePath(request, "/"));
       return;
     }
 
-    response.send(renderLoginPage({ flash: consumeFlash(request), usernameHint: adminUsername }));
+    response.send(
+      renderLoginPage({
+        basePath: getBasePath(request),
+        flash: consumeFlash(request),
+        usernameHint: adminUsername,
+      }),
+    );
   });
 
   app.post("/login", (request, response) => {
@@ -251,17 +292,17 @@ function createApp() {
       request.session.isAuthenticated = true;
       request.session.username = username;
       setFlash(request, "success", "Signed in successfully.");
-      response.redirect("/");
+      response.redirect(withBasePath(request, "/"));
       return;
     }
 
     setFlash(request, "error", "Invalid username or password.");
-    response.redirect("/login");
+    response.redirect(withBasePath(request, "/login"));
   });
 
   app.post("/logout", (request, response) => {
     request.session.destroy(() => {
-      response.redirect("/login");
+      response.redirect(withBasePath(request, "/login"));
     });
   });
 
@@ -317,6 +358,7 @@ function createApp() {
           },
           trackers,
           recentEvents,
+          basePath: getBasePath(request),
           baseUrl: getBaseUrl(request),
           flash: consumeFlash(request),
           user: request.session.username,
@@ -328,7 +370,13 @@ function createApp() {
   });
 
   app.get("/trackers/new", (request, response) => {
-    response.send(renderNewTrackerPage({ flash: consumeFlash(request), user: request.session.username }));
+    response.send(
+      renderNewTrackerPage({
+        basePath: getBasePath(request),
+        flash: consumeFlash(request),
+        user: request.session.username,
+      }),
+    );
   });
 
   app.post("/trackers/mail", upload.single("pixelImage"), async (request, response, next) => {
@@ -336,7 +384,7 @@ function createApp() {
     const name = String(request.body.name || "").trim();
     if (!name) {
       setFlash(request, "error", "Mail tracker name is required.");
-      response.redirect("/trackers/new");
+      response.redirect(withBasePath(request, "/trackers/new"));
       return;
     }
 
@@ -351,7 +399,7 @@ function createApp() {
     );
 
     setFlash(request, "success", `Mail tracker "${name}" created.`);
-    response.redirect(`/trackers/${uuid}`);
+    response.redirect(withBasePath(request, `/trackers/${uuid}`));
   } catch (error) {
     next(error);
   }
@@ -363,7 +411,7 @@ function createApp() {
     const targetUrl = String(request.body.targetUrl || "").trim();
     if (!name || !targetUrl) {
       setFlash(request, "error", "Link tracker name and redirect URL are required.");
-      response.redirect("/trackers/new");
+      response.redirect(withBasePath(request, "/trackers/new"));
       return;
     }
 
@@ -372,13 +420,13 @@ function createApp() {
       parsedUrl = new URL(targetUrl);
     } catch (_error) {
       setFlash(request, "error", "Redirect URL must be a valid absolute URL.");
-      response.redirect("/trackers/new");
+      response.redirect(withBasePath(request, "/trackers/new"));
       return;
     }
 
     if (!["http:", "https:"].includes(parsedUrl.protocol)) {
       setFlash(request, "error", "Redirect URL must use http or https.");
-      response.redirect("/trackers/new");
+      response.redirect(withBasePath(request, "/trackers/new"));
       return;
     }
 
@@ -393,7 +441,7 @@ function createApp() {
     );
 
     setFlash(request, "success", `Link tracker "${name}" created.`);
-    response.redirect(`/trackers/${uuid}`);
+    response.redirect(withBasePath(request, `/trackers/${uuid}`));
   } catch (error) {
     next(error);
   }
@@ -404,7 +452,7 @@ function createApp() {
     const tracker = await get(db, "SELECT * FROM trackers WHERE uuid = ?", [request.params.uuid]);
     if (!tracker) {
       setFlash(request, "error", "Tracker not found.");
-      response.redirect("/");
+      response.redirect(withBasePath(request, "/"));
       return;
     }
 
@@ -413,7 +461,7 @@ function createApp() {
     await run(db, "DELETE FROM trackers WHERE id = ?", [tracker.id]);
 
     setFlash(request, "success", `Tracker "${tracker.name}" and its events were deleted.`);
-    response.redirect("/");
+    response.redirect(withBasePath(request, "/"));
   } catch (error) {
     next(error);
   }
@@ -442,6 +490,7 @@ function createApp() {
       renderTrackerDetailPage({
         tracker,
         events,
+        basePath: getBasePath(request),
         baseUrl: getBaseUrl(request),
         flash: consumeFlash(request),
         user: request.session.username,
@@ -462,7 +511,7 @@ function createApp() {
   response.status(500).send(`
     <h1>Server error</h1>
     <p>${error.message}</p>
-    <p><a href="/">Return to dashboard</a></p>
+    <p><a href="${withBasePath(request, "/")}">Return to dashboard</a></p>
   `);
   });
 

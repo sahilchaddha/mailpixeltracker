@@ -55,6 +55,11 @@ cp .env.example .env
 - `SESSION_SECRET`
 - `PORT`
 
+If you are serving the app under a subpath such as `/mail`, also set either:
+
+- `APP_BASE_URL=https://www.example.com/mail`
+- or `APP_BASE_PATH=/mail`
+
 4. Optional Telegram settings:
 
 - `TELEGRAM_BOT_TOKEN`
@@ -73,7 +78,8 @@ Then open `http://localhost:3000`.
 | Variable | Required | Description |
 | --- | --- | --- |
 | `PORT` | No | HTTP port, defaults to `3000` |
-| `APP_BASE_URL` | No | Informational base URL shown in env, not required by runtime |
+| `APP_BASE_URL` | No | Public base URL for generated tracker links, for example `https://www.example.com/mail` |
+| `APP_BASE_PATH` | No | URL prefix when the app is hosted under a subpath such as `/mail` |
 | `APP_USERNAME` | Yes | Dashboard login username |
 | `APP_PASSWORD` | Yes | Dashboard login password |
 | `SESSION_SECRET` | Yes | Express session secret |

@@ -35,10 +35,21 @@ function statusMessage(kind, message) {
   return `<div class="flash flash-${escapeHtml(kind)}">${escapeHtml(message)}</div>`;
 }
 
+function withBasePath(basePath, routePath = "/") {
+  const normalizedBasePath = basePath ? `/${String(basePath).replace(/^\/+|\/+$/g, "")}` : "";
+  const normalizedRoutePath = routePath.startsWith("/") ? routePath : `/${routePath}`;
+  return `${normalizedBasePath}${normalizedRoutePath}`;
+}
+
+function absoluteUrl(baseUrl, basePath, routePath) {
+  return `${String(baseUrl || "").replace(/\/$/, "")}${withBasePath(basePath, routePath)}`;
+}
+
 function renderLayout({
   title,
   body,
   activePath = "/",
+  basePath = "",
   flash,
   user,
   hideNav = false,
@@ -52,12 +63,12 @@ function renderLayout({
           <p class="sidebar-copy">Track email opens and link clicks from one local dashboard.</p>
         </div>
         <nav class="nav">
-          <a class="${activePath === "/" ? "active" : ""}" href="/">Dashboard</a>
-          <a class="${activePath === "/trackers/new" ? "active" : ""}" href="/trackers/new">Create Tracker</a>
+          <a class="${activePath === "/" ? "active" : ""}" href="${withBasePath(basePath, "/")}">Dashboard</a>
+          <a class="${activePath === "/trackers/new" ? "active" : ""}" href="${withBasePath(basePath, "/trackers/new")}">Create Tracker</a>
         </nav>
         <div class="sidebar-footer">
           <span>Signed in as ${escapeHtml(user || "admin")}</span>
-          <form method="post" action="/logout">
+          <form method="post" action="${withBasePath(basePath, "/logout")}">
             <button class="ghost-button" type="submit">Logout</button>
           </form>
         </div>
@@ -70,7 +81,7 @@ function renderLayout({
       <meta charset="UTF-8" />
       <meta name="viewport" content="width=device-width, initial-scale=1.0" />
       <title>${escapeHtml(title)} | MailPixelTracker</title>
-      <link rel="stylesheet" href="/assets/styles.css" />
+      <link rel="stylesheet" href="${withBasePath(basePath, "/assets/styles.css")}" />
     </head>
     <body class="${hideNav ? "auth-shell" : "app-shell"}">
       ${navigation}
@@ -82,7 +93,7 @@ function renderLayout({
   </html>`;
 }
 
-function renderLoginPage({ flash, usernameHint = "admin" }) {
+function renderLoginPage({ basePath, flash, usernameHint = "admin" }) {
   const body = `
     <section class="auth-card">
       <div>
@@ -90,7 +101,7 @@ function renderLoginPage({ flash, usernameHint = "admin" }) {
         <h1>MailPixelTracker</h1>
         <p>Sign in to manage pixel trackers, redirect links, and real-time open alerts.</p>
       </div>
-      <form class="stack-form" method="post" action="/login">
+      <form class="stack-form" method="post" action="${withBasePath(basePath, "/login")}">
         <label>
           Username
           <input name="username" type="text" value="${escapeHtml(usernameHint)}" autocomplete="username" required />
@@ -107,23 +118,28 @@ function renderLoginPage({ flash, usernameHint = "admin" }) {
   return renderLayout({
     title: "Login",
     body,
+    basePath,
     flash,
     hideNav: true,
   });
 }
 
-function renderDashboard({ stats, trackers, recentEvents, baseUrl, flash, user }) {
+function renderDashboard({ stats, trackers, recentEvents, basePath, baseUrl, flash, user }) {
   const trackerRows = trackers.length
     ? trackers
         .map(
           (tracker) => `
             <tr>
               <td>
-                <a href="/trackers/${escapeHtml(tracker.uuid)}">${escapeHtml(tracker.name)}</a>
+                <a href="${withBasePath(basePath, `/trackers/${escapeHtml(tracker.uuid)}`)}">${escapeHtml(tracker.name)}</a>
                 <div class="muted">${escapeHtml(tracker.uuid)}</div>
               </td>
               <td><span class="${badgeClass(tracker.type)}">${escapeHtml(tracker.type)}</span></td>
-              <td>${tracker.type === "mail" ? `${escapeHtml(baseUrl)}/${escapeHtml(tracker.uuid)}/signature.png` : `${escapeHtml(baseUrl)}/r/${escapeHtml(tracker.uuid)}`}</td>
+              <td>${
+                tracker.type === "mail"
+                  ? escapeHtml(absoluteUrl(baseUrl, basePath, `/${tracker.uuid}/signature.png`))
+                  : escapeHtml(absoluteUrl(baseUrl, basePath, `/r/${tracker.uuid}`))
+              }</td>
               <td>${escapeHtml(String(tracker.event_count || 0))}</td>
               <td>${formatDate(tracker.last_event_at || tracker.created_at)}</td>
             </tr>
@@ -139,7 +155,7 @@ function renderDashboard({ stats, trackers, recentEvents, baseUrl, flash, user }
             <tr>
               <td>${formatDate(event.created_at)}</td>
               <td><span class="${badgeClass(event.event_type)}">${escapeHtml(event.event_type)}</span></td>
-              <td><a href="/trackers/${escapeHtml(event.uuid)}">${escapeHtml(event.tracker_name)}</a></td>
+              <td><a href="${withBasePath(basePath, `/trackers/${escapeHtml(event.uuid)}`)}">${escapeHtml(event.tracker_name)}</a></td>
               <td>${escapeHtml(event.ip_address || "Unknown")}</td>
               <td class="wrap-cell">${escapeHtml(event.user_agent || "Unknown")}</td>
             </tr>
@@ -155,7 +171,7 @@ function renderDashboard({ stats, trackers, recentEvents, baseUrl, flash, user }
         <h1>Email open and link click tracking</h1>
         <p>Create trackers, drop the generated image URL into Gmail, or share redirect URLs that log activity before forwarding.</p>
       </div>
-      <a class="button-link" href="/trackers/new">Create Tracker</a>
+      <a class="button-link" href="${withBasePath(basePath, "/trackers/new")}">Create Tracker</a>
     </section>
 
     <section class="stats-grid">
@@ -223,12 +239,13 @@ function renderDashboard({ stats, trackers, recentEvents, baseUrl, flash, user }
     title: "Dashboard",
     body,
     activePath: "/",
+    basePath,
     flash,
     user,
   });
 }
 
-function renderNewTrackerPage({ flash, user }) {
+function renderNewTrackerPage({ basePath, flash, user }) {
   const body = `
     <section class="hero compact">
       <div>
@@ -243,7 +260,7 @@ function renderNewTrackerPage({ flash, user }) {
         <div class="panel-heading">
           <h2>Mail Tracker</h2>
         </div>
-        <form class="stack-form" action="/trackers/mail" method="post" enctype="multipart/form-data">
+        <form class="stack-form" action="${withBasePath(basePath, "/trackers/mail")}" method="post" enctype="multipart/form-data">
           <label>
             Tracker name
             <input name="name" type="text" placeholder="April outbound sequence" required />
@@ -261,7 +278,7 @@ function renderNewTrackerPage({ flash, user }) {
         <div class="panel-heading">
           <h2>Link Tracker</h2>
         </div>
-        <form class="stack-form" action="/trackers/link" method="post">
+        <form class="stack-form" action="${withBasePath(basePath, "/trackers/link")}" method="post">
           <label>
             Tracker name
             <input name="name" type="text" placeholder="Pricing CTA" required />
@@ -280,16 +297,17 @@ function renderNewTrackerPage({ flash, user }) {
     title: "Create Tracker",
     body,
     activePath: "/trackers/new",
+    basePath,
     flash,
     user,
   });
 }
 
-function renderTrackerDetailPage({ tracker, events, baseUrl, flash, user }) {
+function renderTrackerDetailPage({ tracker, events, basePath, baseUrl, flash, user }) {
   const trackingUrl =
     tracker.type === "mail"
-      ? `${baseUrl}/${tracker.uuid}/signature.png`
-      : `${baseUrl}/r/${tracker.uuid}`;
+      ? absoluteUrl(baseUrl, basePath, `/${tracker.uuid}/signature.png`)
+      : absoluteUrl(baseUrl, basePath, `/r/${tracker.uuid}`);
 
   const usageExample =
     tracker.type === "mail"
@@ -319,10 +337,10 @@ function renderTrackerDetailPage({ tracker, events, baseUrl, flash, user }) {
         <p>Created ${formatDate(tracker.created_at)}. UUID: ${escapeHtml(tracker.uuid)}</p>
       </div>
       <div class="hero-actions">
-        <a class="button-link secondary" href="/">Back to Dashboard</a>
+        <a class="button-link secondary" href="${withBasePath(basePath, "/")}">Back to Dashboard</a>
         <form
           method="post"
-          action="/trackers/${escapeHtml(tracker.uuid)}/delete"
+          action="${withBasePath(basePath, `/trackers/${escapeHtml(tracker.uuid)}/delete`)}"
           onsubmit="return confirm('Delete this tracker and all of its events? This cannot be undone.');"
         >
           <button class="danger-button" type="submit">Delete Tracker</button>
@@ -374,6 +392,7 @@ function renderTrackerDetailPage({ tracker, events, baseUrl, flash, user }) {
     title: tracker.name,
     body,
     activePath: "/",
+    basePath,
     flash,
     user,
   });
