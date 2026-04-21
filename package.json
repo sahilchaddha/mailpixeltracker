@@ -1,0 +1,37 @@
+{
+  "name": "mailpixeltracker",
+  "version": "1.0.0",
+  "description": "Mail and link open tracker with Express, SQLite, Telegram alerts, and a CRM-style dashboard.",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "node --watch index.js",
+    "test": "echo \"No automated tests configured yet\""
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sahilchaddha/mailpixeltracker.git"
+  },
+  "keywords": [
+    "Mail",
+    "Pixel",
+    "Tracker",
+    "Open",
+    "Click",
+    "Open",
+    "Tracker"
+  ],
+  "author": "Sahil Chaddha",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/sahilchaddha/mailpixeltracker/issues"
+  },
+  "homepage": "https://github.com/sahilchaddha/mailpixeltracker#readme",
+  "dependencies": {
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "express-session": "^1.19.0",
+    "multer": "^2.1.1",
+    "sqlite3": "^6.0.1"
+  }
+}
